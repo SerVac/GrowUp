@@ -1,0 +1,25 @@
+<component name="libraryTable">
+  <library name="GOPATH &lt;gmail_oauth2&gt;">
+    <CLASSES>
+      <root url="file://C:/Go/bin/src/google.golang.org" />
+      <root url="file://C:/Go/bin/src/golang.org" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+    <excluded>
+      <root url="file://C:/Go/bin/src/google.golang.org/cloud/storage/testdata" />
+      <root url="file://$PROJECT_DIR$" />
+      <root url="file://C:/Go/bin/src/google.golang.org/api/.git" />
+      <root url="file://C:/Go/bin/src/golang.org/x/net/html/charset/testdata" />
+      <root url="file://C:/Go/bin/src/golang.org/x/net/.git" />
+      <root url="file://C:/Go/bin/src/google.golang.org/cloud/datastore/testdata" />
+      <root url="file://C:/Go/bin/src/golang.org/x/oauth2/.git" />
+      <root url="file://C:/Go/bin/src/golang.org/x/net/http2/testdata" />
+      <root url="file://C:/Go/bin/src/google.golang.org/api/google-api-go-generator/testdata" />
+      <root url="file://$PROJECT_DIR$/gmail_oauth2" />
+      <root url="file://C:/Go/bin/src/golang.org/x/oauth2/google/testdata" />
+      <root url="file://C:/Go/bin/src/golang.org/x/net/html/testdata" />
+      <root url="file://C:/Go/bin/src/google.golang.org/cloud/.git" />
+    </excluded>
+  </library>
+</component>
