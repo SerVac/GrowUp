@@ -1,4 +1,5 @@
 .idea/
-.key/
+key/
+!key/client_secret.json
 *.iml
 *.iws
