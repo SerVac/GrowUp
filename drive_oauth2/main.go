@@ -14,20 +14,56 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/drive/v3"
 )
+
+const htmlIndex = `<html><body>
+Logged in with <a href="/login">Index page code</a>
+</body></html>
+`
+
+var (
+	_ctx = context.Background()
+	_oauthURL = ""
+	_oauthConfig oauth2.Config = nil
+// random string for oauth2 API calls to protect against CSRF
+	oauthStateString = "thisshouldberandom"
+)
+
+// /
+func handleMain(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(htmlIndex))
+}
+// /login
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	if(_oauthConfig != nil) {
+		client := getClient(_ctx, _oauthConfig)
+
+	}
+	//url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
+	//http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+// /http://127.0.0.1:7000/grow_up
+// Called by github after authorization is granted
+func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	state := r.FormValue("state")
+	fmt.Println("state = ", state)
+}
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
-	cacheFile, err := tokenCacheFile()
+	cacheFilePath, err := tokenCacheFilePath()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
-	tok, err := tokenFromFile(cacheFile)
+	tok, err := tokenFromFile(cacheFilePath)
 	if err != nil {
 		tok = getTokenFromWeb(config)
-		saveToken(cacheFile, tok)
+		saveToken(cacheFilePath, tok)
 	}
 	return config.Client(ctx, tok)
 }
@@ -38,6 +74,8 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the " +
 	"authorization code: \n%v\n", authURL)
+
+	_oauthURL = authURL
 
 	var code string
 	if _, err := fmt.Scan(&code); err != nil {
@@ -53,16 +91,15 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
-func tokenCacheFile() (string, error) {
+func tokenCacheFilePath() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
-	os.MkdirAll(tokenCacheDir,os.ModePerm)
-	//os.MkdirAll(tokenCacheDir, 0700)
+	os.MkdirAll(tokenCacheDir, 0700)
 	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("gmail-go-quickstart.json")), err
+		url.QueryEscape("drive-go-quickstart.json")), err
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -91,6 +128,35 @@ func saveToken(file string, token *oauth2.Token) {
 }
 
 func main() {
+	// oauth
+	auth()
+
+	// server
+	http.HandleFunc("/", handleMain)
+	http.HandleFunc("/login", handleLogin)
+	http.HandleFunc("/grow_up", handleOAuthCallback)
+
+	fmt.Print("Started running on http://127.0.0.1:7000\n")
+	fmt.Println(http.ListenAndServe(":7000", nil))
+
+}
+
+func auth() {
+	absPath, _ := filepath.Abs("../key/client_secret.json")
+	b, err := ioutil.ReadFile(absPath)
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+
+}
+
+func main1() {
+
 	ctx := context.Background()
 
 	absPath, _ := filepath.Abs("../key/client_secret.json")
@@ -100,30 +166,31 @@ func main() {
 	}
 
 	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.credentials/gmail-go-quickstart.json
-	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+	// at ~/.credentials/drive-go-quickstart.json
+	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 	client := getClient(ctx, config)
 
-	srv, err := gmail.New(client)
+	srv, err := drive.New(client)
 	if err != nil {
-		log.Fatalf("Unable to retrieve gmail Client %v", err)
+		log.Fatalf("Unable to retrieve drive Client %v", err)
 	}
 
-	user := "me"
-	r, err := srv.Users.Labels.List(user).Do()
+	r, err := srv.Files.List().PageSize(10).
+	Fields("nextPageToken, files(id, name)").Do()
 	if err != nil {
-		log.Fatalf("Unable to retrieve labels. %v", err)
+		log.Fatalf("Unable to retrieve files.", err)
 	}
-	if (len(r.Labels) > 0) {
-		fmt.Print("Labels:\n")
-		for _, l := range r.Labels {
-			fmt.Printf("- %s\n", l.Name)
+
+	fmt.Println("Files:")
+	if len(r.Files) > 0 {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
 		}
 	} else {
-		fmt.Print("No labels found.")
+		fmt.Print("No files found.")
 	}
 
 }
