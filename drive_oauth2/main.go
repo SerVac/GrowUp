@@ -25,57 +25,68 @@ Logged in with <a href="/login">Index page code</a>
 var (
 	_ctx = context.Background()
 	_oauthURL = ""
-	_oauthConfig oauth2.Config = nil
+	_oauthConfig *oauth2.Config
+//_oauthConfig oauth2.Config = oauth2.Config{}
 // random string for oauth2 API calls to protect against CSRF
 	oauthStateString = "thisshouldberandom"
 )
 
-// /
-func handleMain(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(htmlIndex))
-}
-// /login
-func handleLogin(w http.ResponseWriter, r *http.Request) {
-	if(_oauthConfig != nil) {
-		client := getClient(_ctx, _oauthConfig)
 
-	}
-	//url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
-	//http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
-// /http://127.0.0.1:7000/grow_up
-// Called by github after authorization is granted
-func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	state := r.FormValue("state")
-	fmt.Println("state = ", state)
-}
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
+func getClient()  {
+	cacheFilePath, err := tokenCacheFilePath()
+	if err != nil {
+		log.Fatalf("Unable to get path to cached credential file. %v", err)
+	}
+
+	tok, err := tokenFromFile(cacheFilePath)
+	if err != nil {
+		//tok = getTokenFromWeb(config)
+		//saveToken(cacheFilePath, tok)
+		generateTokenFromWeb()
+	}
+
+	print("tok = ", tok)
+
+
+}
+
+func getClient1(ctx context.Context, config *oauth2.Config) *http.Client {
 	cacheFilePath, err := tokenCacheFilePath()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
 	tok, err := tokenFromFile(cacheFilePath)
 	if err != nil {
-		tok = getTokenFromWeb(config)
-		saveToken(cacheFilePath, tok)
+		//tok = getTokenFromWeb(config)
+		//saveToken(cacheFilePath, tok)
+		//generateTokenFromWeb(config)
 	}
 	return config.Client(ctx, tok)
+}
+
+func generateTokenFromWeb() {
+	 authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	 fmt.Printf("Go to the following link in your browser then type the " +
+	 "authorization code: \n%v\n", authURL)
+}
+
+func generateTokenFromWeb1(config *oauth2.Config) {
+	//authURL := &config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	//fmt.Printf("Go to the following link in your browser then type the " +
+	//"authorization code: \n%v\n", authURL)
 }
 
 // getTokenFromWeb uses Config to request a Token.
 // It returns the retrieved Token.
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the " +
-	"authorization code: \n%v\n", authURL)
+	//_oauthURL := &config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	//fmt.Printf("Go to the following link in your browser then type the " +
+	//"authorization code: \n%v\n", _oauthURL)
 
-	_oauthURL = authURL
+	//_oauthURL = authURL
 
 	var code string
 	if _, err := fmt.Scan(&code); err != nil {
@@ -127,6 +138,48 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
+func auth() {
+	absPath, _ := filepath.Abs("../key/client_secret.json")
+	b, err := ioutil.ReadFile(absPath)
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	//config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	_oauthConfig, err = google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	fmt.Println("get value by pointer = ", &_oauthConfig)
+	fmt.Println("get refferense on pointer = ", _oauthConfig)
+
+	//var _ = _oauthConfig
+
+}
+
+// http://127.0.0.1:7000/
+func handleMain(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(htmlIndex))
+}
+// /login
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	if (_oauthConfig != nil) {
+		getClient()
+		//client := getClient(_ctx, _oauthConfig)
+
+	}
+	//url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
+	//http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+// //grow_up
+// Called by github after authorization is granted
+func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	state := r.FormValue("state")
+	fmt.Println("state = ", state)
+}
+
 func main() {
 	// oauth
 	auth()
@@ -141,22 +194,8 @@ func main() {
 
 }
 
-func auth() {
-	absPath, _ := filepath.Abs("../key/client_secret.json")
-	b, err := ioutil.ReadFile(absPath)
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-
-}
-
 func main1() {
-
+/*
 	ctx := context.Background()
 
 	absPath, _ := filepath.Abs("../key/client_secret.json")
@@ -192,5 +231,5 @@ func main1() {
 	} else {
 		fmt.Print("No files found.")
 	}
-
+*/
 }
