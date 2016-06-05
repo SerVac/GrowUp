@@ -23,47 +23,34 @@ Logged in with <a href="/login">Index page code</a>
 `
 
 var (
+	_cacheFilePath string
 	_ctx = context.Background()
-	_oauthURL = ""
 	_oauthConfig *oauth2.Config
-//_oauthConfig oauth2.Config = oauth2.Config{}
+	_oauthToken *oauth2.Token
+	_oauthClient *http.Client
 // random string for oauth2 API calls to protect against CSRF
 	oauthStateString = "thisshouldberandom"
 )
 
 
-
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getClient(w http.ResponseWriter, r *http.Request) {
-	cacheFilePath, err := tokenCacheFilePath()
+	_cacheFilePath, err := tokenCacheFilePath()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
 
-	tok, err := tokenFromFile(cacheFilePath)
+	_oauthToken, err = tokenFromFile(_cacheFilePath)
 	if err != nil {
-		//tok = getTokenFromWeb(config)
-		//saveToken(cacheFilePath, tok)
-		authURL := generateTokenFromWeb()
+		authURL := getAuthTokenURL()
 		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
-		body := r.Body
-		print("body = ", body)
-		/*
-		var code string
-		if _, err := fmt.Scan(&code); err != nil {
-			log.Fatalf("Unable to read authorization code %v", err)
-		}
+		//body := r.Body
+	}else {
+		_oauthClient = _oauthConfig.Client(_ctx, _oauthToken)
+		redirectToMainPage(w,r)
 
-		tok, err := _oauthConfig.Exchange(oauth2.NoContext, code)
-		if err != nil {
-			log.Fatalf("Unable to retrieve token from web %v", err)
-		}
-		*/
 	}
-
-	print("tok = ", tok)
-
 }
 
 func getClient1(ctx context.Context, config *oauth2.Config) *http.Client {
@@ -80,30 +67,9 @@ func getClient1(ctx context.Context, config *oauth2.Config) *http.Client {
 	return config.Client(ctx, tok)
 }
 
-func generateTokenFromWeb() string {
+func getAuthTokenURL() string {
 	authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the " +
-	"authorization code: \n%v\n", authURL)
-	/*
-	var b io.Reader
-	response, err := http.NewRequest(http.MethodGet, authURL, b)
-	if err != nil {
-		log.Fatal(err)
-	} else {
-		defer response.Body.Close()
-		_, err := io.Copy(os.Stdout, response.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	*/
 	return authURL
-}
-
-func generateTokenFromWeb1(config *oauth2.Config) {
-	//authURL := &config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	//fmt.Printf("Go to the following link in your browser then type the " +
-	//"authorization code: \n%v\n", authURL)
 }
 
 // getTokenFromWeb uses Config to request a Token.
@@ -172,16 +138,18 @@ func auth() {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
-	//config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
 	_oauthConfig, err = google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 	fmt.Println("get value by pointer = ", &_oauthConfig)
 	fmt.Println("get refferense on pointer = ", _oauthConfig)
-
 	//var _ = _oauthConfig
+}
 
+// ?
+func redirectToMainPage(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/grow_up", http.StatusTemporaryRedirect)
 }
 
 // http://127.0.0.1:7000/
@@ -195,26 +163,42 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if (_oauthConfig != nil) {
 		getClient(w, r)
 		//client := getClient(_ctx, _oauthConfig)
-
 	}
-	//url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
-	//http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
-// //grow_up
-// Called by github after authorization is granted
+// /aouthCallnack
 func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state := r.FormValue("state")
 	fmt.Println("state = ", state)
+	code := r.FormValue("code")
+	fmt.Println("code = ", code)
+
+	_oauthToken, err := _oauthConfig.Exchange(oauth2.NoContext, code)
+	if err != nil {
+		log.Fatalf("Unable to retrieve token from web %v", err)
+	}
+	saveToken(_cacheFilePath, _oauthToken)
+
+}
+// /grow_up
+func handleGrowUp(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	var htmlTemlate string = `<html><body>
+	Grow UP!
+	</body></html>`
+
+	w.Write([]byte(htmlTemlate))
 }
 
 func main() {
-	// oauth
 	auth()
 
 	// server
 	http.HandleFunc("/", handleMain)
 	http.HandleFunc("/login", handleLogin)
-	http.HandleFunc("/grow_up", handleOAuthCallback)
+	http.HandleFunc("/oauth_callback", handleOAuthCallback)
+	http.HandleFunc("/grow_up", handleGrowUp)
 
 	fmt.Print("Started running on http://127.0.0.1:7000\n")
 	fmt.Println(http.ListenAndServe(":7000", nil))
