@@ -35,7 +35,7 @@ var (
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient()  {
+func getClient(w http.ResponseWriter, r *http.Request) {
 	cacheFilePath, err := tokenCacheFilePath()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
@@ -45,11 +45,24 @@ func getClient()  {
 	if err != nil {
 		//tok = getTokenFromWeb(config)
 		//saveToken(cacheFilePath, tok)
-		generateTokenFromWeb()
+		authURL := generateTokenFromWeb()
+		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+		body := r.Body
+		print("body = ", body)
+		/*
+		var code string
+		if _, err := fmt.Scan(&code); err != nil {
+			log.Fatalf("Unable to read authorization code %v", err)
+		}
+
+		tok, err := _oauthConfig.Exchange(oauth2.NoContext, code)
+		if err != nil {
+			log.Fatalf("Unable to retrieve token from web %v", err)
+		}
+		*/
 	}
 
 	print("tok = ", tok)
-
 
 }
 
@@ -67,10 +80,24 @@ func getClient1(ctx context.Context, config *oauth2.Config) *http.Client {
 	return config.Client(ctx, tok)
 }
 
-func generateTokenFromWeb() {
-	 authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	 fmt.Printf("Go to the following link in your browser then type the " +
-	 "authorization code: \n%v\n", authURL)
+func generateTokenFromWeb() string {
+	authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser then type the " +
+	"authorization code: \n%v\n", authURL)
+	/*
+	var b io.Reader
+	response, err := http.NewRequest(http.MethodGet, authURL, b)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		defer response.Body.Close()
+		_, err := io.Copy(os.Stdout, response.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	*/
+	return authURL
 }
 
 func generateTokenFromWeb1(config *oauth2.Config) {
@@ -166,7 +193,7 @@ func handleMain(w http.ResponseWriter, r *http.Request) {
 // /login
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if (_oauthConfig != nil) {
-		getClient()
+		getClient(w, r)
 		//client := getClient(_ctx, _oauthConfig)
 
 	}
@@ -195,41 +222,41 @@ func main() {
 }
 
 func main1() {
-/*
-	ctx := context.Background()
+	/*
+		ctx := context.Background()
 
-	absPath, _ := filepath.Abs("../key/client_secret.json")
-	b, err := ioutil.ReadFile(absPath)
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.credentials/drive-go-quickstart.json
-	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(ctx, config)
-
-	srv, err := drive.New(client)
-	if err != nil {
-		log.Fatalf("Unable to retrieve drive Client %v", err)
-	}
-
-	r, err := srv.Files.List().PageSize(10).
-	Fields("nextPageToken, files(id, name)").Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve files.", err)
-	}
-
-	fmt.Println("Files:")
-	if len(r.Files) > 0 {
-		for _, i := range r.Files {
-			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		absPath, _ := filepath.Abs("../key/client_secret.json")
+		b, err := ioutil.ReadFile(absPath)
+		if err != nil {
+			log.Fatalf("Unable to read client secret file: %v", err)
 		}
-	} else {
-		fmt.Print("No files found.")
-	}
-*/
+
+		// If modifying these scopes, delete your previously saved credentials
+		// at ~/.credentials/drive-go-quickstart.json
+		config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+		if err != nil {
+			log.Fatalf("Unable to parse client secret file to config: %v", err)
+		}
+		client := getClient(ctx, config)
+
+		srv, err := drive.New(client)
+		if err != nil {
+			log.Fatalf("Unable to retrieve drive Client %v", err)
+		}
+
+		r, err := srv.Files.List().PageSize(10).
+		Fields("nextPageToken, files(id, name)").Do()
+		if err != nil {
+			log.Fatalf("Unable to retrieve files.", err)
+		}
+
+		fmt.Println("Files:")
+		if len(r.Files) > 0 {
+			for _, i := range r.Files {
+				fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			}
+		} else {
+			fmt.Print("No files found.")
+		}
+	*/
 }
