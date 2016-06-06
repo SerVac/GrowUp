@@ -36,7 +36,8 @@ var (
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getClient(w http.ResponseWriter, r *http.Request) {
-	_cacheFilePath, err := tokenCacheFilePath()
+	var err error = nil
+	_cacheFilePath, err = tokenCacheFilePath()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
@@ -48,49 +49,13 @@ func getClient(w http.ResponseWriter, r *http.Request) {
 		//body := r.Body
 	}else {
 		_oauthClient = _oauthConfig.Client(_ctx, _oauthToken)
-		redirectToMainPage(w,r)
-
+		redirectToMainPage(w, r)
 	}
-}
-
-func getClient1(ctx context.Context, config *oauth2.Config) *http.Client {
-	cacheFilePath, err := tokenCacheFilePath()
-	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
-	}
-	tok, err := tokenFromFile(cacheFilePath)
-	if err != nil {
-		//tok = getTokenFromWeb(config)
-		//saveToken(cacheFilePath, tok)
-		//generateTokenFromWeb(config)
-	}
-	return config.Client(ctx, tok)
 }
 
 func getAuthTokenURL() string {
 	authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	return authURL
-}
-
-// getTokenFromWeb uses Config to request a Token.
-// It returns the retrieved Token.
-func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	//_oauthURL := &config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	//fmt.Printf("Go to the following link in your browser then type the " +
-	//"authorization code: \n%v\n", _oauthURL)
-
-	//_oauthURL = authURL
-
-	var code string
-	if _, err := fmt.Scan(&code); err != nil {
-		log.Fatalf("Unable to read authorization code %v", err)
-	}
-
-	tok, err := config.Exchange(oauth2.NoContext, code)
-	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
-	}
-	return tok
 }
 
 // tokenCacheFile generates credential file path/filename.
@@ -162,7 +127,6 @@ func handleMain(w http.ResponseWriter, r *http.Request) {
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if (_oauthConfig != nil) {
 		getClient(w, r)
-		//client := getClient(_ctx, _oauthConfig)
 	}
 }
 // /aouthCallnack
@@ -178,7 +142,9 @@ func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	saveToken(_cacheFilePath, _oauthToken)
 
+	redirectToMainPage(w, r)
 }
+
 // /grow_up
 func handleGrowUp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -203,44 +169,4 @@ func main() {
 	fmt.Print("Started running on http://127.0.0.1:7000\n")
 	fmt.Println(http.ListenAndServe(":7000", nil))
 
-}
-
-func main1() {
-	/*
-		ctx := context.Background()
-
-		absPath, _ := filepath.Abs("../key/client_secret.json")
-		b, err := ioutil.ReadFile(absPath)
-		if err != nil {
-			log.Fatalf("Unable to read client secret file: %v", err)
-		}
-
-		// If modifying these scopes, delete your previously saved credentials
-		// at ~/.credentials/drive-go-quickstart.json
-		config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-		if err != nil {
-			log.Fatalf("Unable to parse client secret file to config: %v", err)
-		}
-		client := getClient(ctx, config)
-
-		srv, err := drive.New(client)
-		if err != nil {
-			log.Fatalf("Unable to retrieve drive Client %v", err)
-		}
-
-		r, err := srv.Files.List().PageSize(10).
-		Fields("nextPageToken, files(id, name)").Do()
-		if err != nil {
-			log.Fatalf("Unable to retrieve files.", err)
-		}
-
-		fmt.Println("Files:")
-		if len(r.Files) > 0 {
-			for _, i := range r.Files {
-				fmt.Printf("%s (%s)\n", i.Name, i.Id)
-			}
-		} else {
-			fmt.Print("No files found.")
-		}
-	*/
 }
