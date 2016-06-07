@@ -70,6 +70,47 @@ func handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
+
+func main1() {
+
+	ctx := context.Background()
+
+	absPath, _ := filepath.Abs("../key/client_secret.json")
+	b, err := ioutil.ReadFile(absPath)
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved credentials
+	// at ~/.credentials/drive-go-quickstart.json
+	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(ctx, config)
+
+	srv, err := drive.New(client)
+	if err != nil {
+		log.Fatalf("Unable to retrieve drive Client %v", err)
+	}
+
+	r, err := srv.Files.List().PageSize(10).
+	Fields("nextPageToken, files(id, name)").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files.", err)
+	}
+
+	fmt.Println("Files:")
+	if len(r.Files) > 0 {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		}
+	} else {
+		fmt.Print("No files found.")
+	}
+
+}
+
 func main() {
 	http.HandleFunc("/", handleMain)
 	http.HandleFunc("/login", handleGitHubLogin)
@@ -77,3 +118,23 @@ func main() {
 	fmt.Print("Started running on http://127.0.0.1:7000\n")
 	fmt.Println(http.ListenAndServe(":7000", nil))
 }
+
+/*
+type Target struct {
+	audience          string
+	user_id           string
+	scope             string
+	expires_in        string
+	error             string
+	error_description string
+}
+
+func getJson(url string, target interface{}) error {
+	r, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	return json.NewDecoder(r.Body).Decode(target)
+}
+*/

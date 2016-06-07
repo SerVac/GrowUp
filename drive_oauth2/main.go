@@ -55,16 +55,24 @@ func createClient(w http.ResponseWriter, r *http.Request) {
 
 			_oauthClient = _oauthConfig.Client(_ctx, _oauthToken)
 
-			token_acces := _oauthToken.AccessToken
+			token_access := _oauthToken.AccessToken
 			//resp, err := _oauthClient.Get("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token="+token_acces)
 			//resp1, err1 := _oauthClient.Head("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token="+token_acces)
 
-			var target Target
-			err := getJson("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + token_acces, target)
+			var url_info = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + token_access
+			resp, err := http.Get(url_info)
 
-			print(err)
-			//print(resp, err, resp1, err1)
+			//print("Resp: ", resp, "| Error: " , err)
+			if (resp.StatusCode == http.StatusBadRequest) {
+				url_revoke := "https://accounts.google.com/o/oauth2/revoke?token=" + token_access
+				resp, err = http.Get(url_revoke)
 
+				authURL := getAuthTokenURL()
+				http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+			}
+			if (err != nil) {
+				log.Fatalf("Token info get error %v", err)
+			}
 
 			redirectToMainPage(w, r)
 		}
@@ -73,23 +81,7 @@ func createClient(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type Target struct {
-	audience string
-	user_id string
-	scope string
-	expires_in string
-	error string
-	error_description string
-}
 
-func getJson(url string, target interface{}) error {
-	r, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(target)
-}
 
 func getAuthTokenURL() string {
 	authURL := _oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
@@ -191,19 +183,20 @@ func handleGrowUp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	//var htmlTemlate string = `<html><body>`
-	//Grow UP!
-	//</body></html>`
-
 	var err error = nil
 	_googleDriveService, err = drive.New(_oauthClient)
 	if err != nil {
 		log.Fatalf("Unable to retrieve drive Client %v", err)
 	}
 
-	reader, err := _googleDriveService.Files.List().PageSize(10).Fields("nextPageToken, files(id, name)").Do()
+	reader, err := _googleDriveService.Files.List().PageSize(10).Do()
 	if err != nil {
-		log.Fatalf("Unable to retrieve files.", err)
+		log.Fatalf("Unable to retrieve files. ", err)
+	}
+
+	reader, err = _googleDriveService.Files.List().PageSize(10).Fields("nextPageToken, files(id, name)").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files. ", err)
 	}
 
 	htmlBody := "Files: \n"
@@ -222,7 +215,6 @@ func handleGrowUp(w http.ResponseWriter, r *http.Request) {
 	htmlEnd := "</body></html>"
 	htmlText := htmlStart + htmlBody + htmlEnd
 	w.Write([]byte(htmlText))
-	//w.Write([]byte(htmlTemlate))
 }
 
 func main() {
