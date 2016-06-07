@@ -28,6 +28,7 @@ var (
 	_oauthConfig *oauth2.Config
 	_oauthToken *oauth2.Token
 	_oauthClient *http.Client
+	_googleDriveService *drive.Service
 // random string for oauth2 API calls to protect against CSRF
 	oauthStateString = "thisshouldberandom"
 )
@@ -35,22 +36,59 @@ var (
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient(w http.ResponseWriter, r *http.Request) {
-	var err error = nil
-	_cacheFilePath, err = tokenCacheFilePath()
-	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
-	}
+func createClient(w http.ResponseWriter, r *http.Request) {
+	if (_oauthConfig != nil) {
+		var err error = nil
+		_cacheFilePath, err = tokenCacheFilePath()
+		if err != nil {
+			log.Fatalf("Unable to get path to cached credential file. %v", err)
+		}
 
-	_oauthToken, err = tokenFromFile(_cacheFilePath)
-	if err != nil {
-		authURL := getAuthTokenURL()
-		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
-		//body := r.Body
+		_oauthToken, err = tokenFromFile(_cacheFilePath)
+		if err != nil {
+			log.Print("Generate new token")
+			authURL := getAuthTokenURL()
+			http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+			//body := r.Body
+		}else {
+			log.Print("Get cached token")
+
+			_oauthClient = _oauthConfig.Client(_ctx, _oauthToken)
+
+			token_acces := _oauthToken.AccessToken
+			//resp, err := _oauthClient.Get("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token="+token_acces)
+			//resp1, err1 := _oauthClient.Head("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token="+token_acces)
+
+			var target Target
+			err := getJson("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + token_acces, target)
+
+			print(err)
+			//print(resp, err, resp1, err1)
+
+
+			redirectToMainPage(w, r)
+		}
 	}else {
-		_oauthClient = _oauthConfig.Client(_ctx, _oauthToken)
-		redirectToMainPage(w, r)
+		log.Fatal("Unable to get oauth configuartion!")
 	}
+}
+
+type Target struct {
+	audience string
+	user_id string
+	scope string
+	expires_in string
+	error string
+	error_description string
+}
+
+func getJson(url string, target interface{}) error {
+	r, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+	return json.NewDecoder(r.Body).Decode(target)
 }
 
 func getAuthTokenURL() string {
@@ -107,8 +145,8 @@ func auth() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	fmt.Println("get value by pointer = ", &_oauthConfig)
-	fmt.Println("get refferense on pointer = ", _oauthConfig)
+	//fmt.Println("get value by pointer = ", &_oauthConfig)
+	//fmt.Println("get refferense on pointer = ", _oauthConfig)
 	//var _ = _oauthConfig
 }
 
@@ -123,12 +161,12 @@ func handleMain(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(htmlIndex))
 }
+
 // /login
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	if (_oauthConfig != nil) {
-		getClient(w, r)
-	}
+	createClient(w, r)
 }
+
 // /aouthCallnack
 func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state := r.FormValue("state")
@@ -136,7 +174,10 @@ func handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	fmt.Println("code = ", code)
 
-	_oauthToken, err := _oauthConfig.Exchange(oauth2.NoContext, code)
+	//TODO state error check
+	// converts an authorization code into a token
+	//_oauthToken, err := _oauthConfig.Exchange(oauth2.NoContext, code)
+	_oauthToken, err := _oauthConfig.Exchange(_ctx, code)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web %v", err)
 	}
@@ -150,11 +191,38 @@ func handleGrowUp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	var htmlTemlate string = `<html><body>
-	Grow UP!
-	</body></html>`
+	//var htmlTemlate string = `<html><body>`
+	//Grow UP!
+	//</body></html>`
 
-	w.Write([]byte(htmlTemlate))
+	var err error = nil
+	_googleDriveService, err = drive.New(_oauthClient)
+	if err != nil {
+		log.Fatalf("Unable to retrieve drive Client %v", err)
+	}
+
+	reader, err := _googleDriveService.Files.List().PageSize(10).Fields("nextPageToken, files(id, name)").Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files.", err)
+	}
+
+	htmlBody := "Files: \n"
+	fmt.Println("Files:")
+	if len(reader.Files) > 0 {
+		for _, i := range reader.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			htmlBody = htmlBody + i.Name + "(" + i.Id + ")\n"
+		}
+	} else {
+		htmlBody = htmlBody + "No files found"
+		fmt.Print("No files found.")
+	}
+
+	htmlStart := "<html><body>"
+	htmlEnd := "</body></html>"
+	htmlText := htmlStart + htmlBody + htmlEnd
+	w.Write([]byte(htmlText))
+	//w.Write([]byte(htmlTemlate))
 }
 
 func main() {
